@@ -5,6 +5,7 @@ const {
 
 const net = require('net');
 
+
 /**
  * @class UserInterface
  *
@@ -18,6 +19,7 @@ class RemoteInterface {
     this.clients = []
     this.launchServer()
   }
+
 
   launchServer() {
     this.server = net.createServer((socket) => {
@@ -56,13 +58,19 @@ class RemoteInterface {
   handleNewClient(client) {
     // process.stdout.write('\x07')
     client.setEncoding('utf8')
-    this.clients.push(client)
+    let id = (Math.random() + 1).toString(36).substring(7)
+    this.clients.push({client, id})
     this.resetIdleTimer(client, MAX_IDLE_TIMEOUT / 2)
 
     if (this.newClientHandler) this.newClientHandler(client)
 
     client.on('data', this.handleClientData.bind(this, client))
     client.on('end', this.handleClientEnded.bind(this, client))
+    for (const item of this.clients) {
+      item.client.write(`${id} has joined!\n`)
+      item.client.write(`Current number of players: ${this.clients.length}
+      \n`)
+    }
   }
 
   handleClientData(client, data) {
@@ -74,6 +82,19 @@ class RemoteInterface {
   handleClientEnded(client) {
     if (client.idleTimer) clearTimeout(client.idleTimer)
     if (this.clientEndHandler) this.clientEndHandler(client)
+    let id = ''
+    let clientIndex = ''
+    for (const index in this.clients) {
+      let item = this.clients[index]
+      if (item.client == client) {
+        id = item.id
+        clientIndex = index
+      }
+    }
+    this.clients.splice(clientIndex, 1)
+    for (const item of this.clients) {
+      item.client.write(`${id} has left the game.\n`)
+    }
   }
 
   bindHandlers(clientDataHandler, newClientHandler, clientEndHandler) {
@@ -88,3 +109,4 @@ class RemoteInterface {
 }
 
 module.exports = { RemoteInterface }
+
